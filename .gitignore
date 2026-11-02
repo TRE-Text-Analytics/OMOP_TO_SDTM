@@ -1,0 +1,6 @@
+*.csv
+!mapping/*.csv
+*.xpt
+*.xlsx
+.env
+__pycache__/

@@ -1,0 +1,1042 @@
+version: '1.0'
+biobank: XRZBXQ
+cdm: 'demo/SDTM:2.1'
+participantTable: omop_combined.person
+participantIdField: person_id
+cte:
+  -
+    name: conditions_cte
+    sql: |
+      SELECT DISTINCT ON (co.person_id, c.concept_code, co.condition_start_date)
+        co.person_id,
+        co.condition_start_date,
+        co.condition_end_date,
+        c.concept_name,
+        c.concept_code,
+        c.concept_id,
+        c.domain_id
+      FROM omop_combined.condition_occurrence co JOIN omop_combined.concept c ON co.condition_concept_id = c.concept_id
+      ORDER BY co.person_id, c.concept_code, co.condition_start_date, co.condition_end_date NULLS LAST
+    description: 'CTE for conditions from omop_combined.condition_occurrence'
+  -
+    name: ts_cte
+    sql: |
+      SELECT  1 AS tsseq, 'SDTMVER'  AS tsparmcd, 'SDTM Version'                            AS tsparm, '2.0'          AS tsval, NULL::text AS tsvalnf, NULL::text AS tsvalcd, NULL::text AS tsvcdref, NULL::text AS tsvcdver
+      UNION ALL SELECT  2, 'SDTIGVER', 'SDTM IG Version',                        '3.4',                NULL, NULL, NULL, NULL
+      UNION ALL SELECT  3, 'TITLE',    'Trial Title',                             'Biobank XRZBXQ Observational Study', NULL, NULL, NULL, NULL
+      UNION ALL SELECT  4, 'SPONSOR',  'Clinical Study Sponsor',                  'XRZBXQ',             NULL, NULL, NULL, NULL
+      UNION ALL SELECT  5, 'REGID',    'Registry Identifier',                     NULL,                 'NA', NULL, NULL, NULL
+      UNION ALL SELECT  6, 'TTYPE',    'Trial Type',                              'OBSERVATIONAL',      NULL, NULL, NULL, NULL
+      UNION ALL SELECT  7, 'STYPE',    'Study Type',                              'OBSERVATIONAL',      NULL, NULL, NULL, NULL
+      UNION ALL SELECT  8, 'TPHASE',   'Trial Phase Classification',              NULL,                 'NA', NULL, NULL, NULL
+      UNION ALL SELECT  9, 'TCNTRL',   'Control Type',                            'NONE',               NULL, NULL, NULL, NULL
+      UNION ALL SELECT 10, 'TINDTP',   'Trial Intent Type',                       'BASIC SCIENCE',      NULL, NULL, NULL, NULL
+      UNION ALL SELECT 11, 'THERAREA', 'Therapeutic Area',                        'GENERAL',            NULL, NULL, NULL, NULL
+      UNION ALL SELECT 12, 'RANDOM',   'Trial is Randomized',                     'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 13, 'TBLIND',   'Trial Blinding Schema',                   'OPEN LABEL',         NULL, NULL, NULL, NULL
+      UNION ALL SELECT 14, 'ADAPT',    'Adaptive Design',                         'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 15, 'HLTSUBJI', 'Healthy Subject Indicator',               'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 16, 'ADDON',    'Added on to Existing Treatments',         'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 17, 'NARMS',    'Planned Number of Arms',                  '1',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 18, 'NCOHORT',  'Number of Groups/Cohorts',                '1',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 19, 'PLANSUB',  'Planned Number of Subjects',              (SELECT COUNT(DISTINCT person_id)::text FROM omop_combined.person), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 20, 'ACTSUB',   'Actual Number of Subjects',               (SELECT COUNT(DISTINCT person_id)::text FROM omop_combined.person), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 21, 'SEXPOP',   'Sex of Participants',                     'BOTH',               NULL, NULL, NULL, NULL
+      UNION ALL SELECT 22, 'AGEMIN',   'Planned Minimum Age of Subjects',         'P18Y',               NULL, NULL, NULL, NULL
+      UNION ALL SELECT 23, 'AGEMAX',   'Planned Maximum Age of Subjects',         'P99Y',               NULL, NULL, NULL, NULL
+      UNION ALL SELECT 24, 'SSTDTC',   'Study Start Date',                        (SELECT to_char(MIN(condition_start_date), 'YYYY-MM-DD') FROM omop_combined.condition_occurrence), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 25, 'SENDTC',   'Study End Date',                          (SELECT to_char(MAX(condition_start_date), 'YYYY-MM-DD') FROM omop_combined.condition_occurrence), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 26, 'DCUTDTC',  'Data Cutoff Date',                        to_char(CURRENT_DATE, 'YYYY-MM-DD'), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 27, 'DCUTDESC', 'Data Cutoff Description',                 'FINAL',              NULL, NULL, NULL, NULL
+      UNION ALL SELECT 28, 'LENGTH',   'Trial Length',                            (SELECT 'P' || DATE_PART('year', age(MAX(condition_start_date), MIN(condition_start_date)))::int::text || 'Y' FROM omop_combined.condition_occurrence), NULL, NULL, NULL, NULL
+      UNION ALL SELECT 29, 'FCNTRY',   'Planned Country of Investigational Sites', 'USA',               NULL, 'USA', 'ISO 3166', NULL
+      UNION ALL SELECT 30, 'OBJPRIM',  'Trial Primary Objective',                 'Characterize the clinical phenotype of biobank participants', NULL, NULL, NULL, NULL
+      UNION ALL SELECT 31, 'OBJSEC',   'Trial Secondary Objective',               NULL,                 'NA', NULL, NULL, NULL
+      UNION ALL SELECT 32, 'OUTMSPRI', 'Primary Outcome Measure',                 'Clinical outcomes derived from electronic health records', NULL, NULL, NULL, NULL
+      UNION ALL SELECT 33, 'STOPRULE', 'Study Stop Rules',                        'Not applicable for observational study', NULL, NULL, NULL, NULL
+      UNION ALL SELECT 34, 'ONGOSIND', 'Ongoing Study Indicator',                 'Y',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 35, 'EXTTIND',  'Extension Trial Indicator',               'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 36, 'PDSTIND',  'Pediatric Study Indicator',               'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 37, 'PDPSTIND', 'Pediatric Postmarket Study Indicator',    'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 38, 'PIPIND',   'Pediatric Investigation Plan Indicator',  'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 39, 'RDIND',    'Rare Disease Indicator',                  'N',                  NULL, NULL, NULL, NULL
+      UNION ALL SELECT 40, 'TDIGRP',   'Diagnosis Group',                         'GENERAL',            NULL, NULL, NULL, NULL
+    description: 'CTE for Trial Summary parameters'
+  -
+    name: measurements_cte
+    sql: |
+      SELECT
+        m.person_id,
+        m.measurement_date,
+        m.measurement_source_value,
+        c.concept_name as measurement_concept_name,
+        m.value_as_number,
+        m.value_source_value,
+        m.unit_source_value,
+        m.range_low,
+        m.range_high
+      FROM omop_combined.measurement m
+      JOIN omop_combined.concept c ON m.measurement_concept_id = c.concept_id
+      WHERE m.value_as_number IS NOT NULL AND m.measurement_source_value IS NOT NULL and m.measurement_concept_id > 0
+    description: 'CTE for laboratory measurements, limited to 5M. Lab test names mapped via mimic-lab-mapping.json during CSV-to-XPT.'
+  -
+    name: observations_cte
+    sql: |
+      SELECT DISTINCT ON (o.person_id, o.observation_concept_id, o.observation_date)
+        o.person_id,
+        o.observation_date,
+        o.observation_source_value,
+        c.concept_name as observation_concept_name,
+        o.value_as_string
+      FROM omop_combined.observation o
+      JOIN omop_combined.concept c ON o.observation_concept_id = c.concept_id
+      WHERE o.observation_concept_id > 0
+      ORDER BY o.person_id, o.observation_concept_id, o.observation_date
+    description: 'CTE for subject characteristics from omop_combined.observation'
+  -
+    name: vitalsigns_cte
+    sql: |
+      SELECT
+        m.person_id,
+        m.measurement_date,
+        m.measurement_datetime,
+        c.concept_name as vs_test_name,
+        m.value_as_number,
+        m.value_source_value,
+        m.unit_source_value
+      FROM omop_combined.measurement m
+      JOIN omop_combined.concept c ON m.measurement_concept_id = c.concept_id
+      WHERE m.measurement_concept_id IN (4099154, 4177340)
+        AND m.value_as_number IS NOT NULL
+    description: 'CTE for vital signs from measurement (Weight, Height only — other VS concept_ids map to culture data in this MIMIC dataset)'
+  -
+    name: death_cte
+    sql: |
+      SELECT
+        d.person_id,
+        d.death_date
+      FROM omop_combined.death d
+    description: 'CTE for death dates'
+  -
+    name: procedures_cte
+    sql: |
+      SELECT DISTINCT ON (po.person_id, c.concept_code, po.procedure_date)
+        po.person_id,
+        po.procedure_date,
+        po.procedure_end_date,
+        c.concept_name,
+        c.concept_code,
+        c.concept_id,
+        c.domain_id
+      FROM omop_combined.procedure_occurrence po JOIN omop_combined.concept c ON po.procedure_concept_id = c.concept_id
+      WHERE c.concept_id > 0
+      ORDER BY po.person_id, c.concept_code, po.procedure_date, po.procedure_end_date NULLS LAST
+    description: 'CTE for procedures from omop_combined.procedure_occurrence'
+  -
+    name: specimen_cte
+    sql: |
+      SELECT
+        s.person_id,
+        s.specimen_date,
+        s.specimen_source_value,
+        c.concept_name,
+        c.concept_code
+      FROM omop_combined.specimen s JOIN omop_combined.concept c ON s.specimen_concept_id = c.concept_id
+      WHERE c.concept_id > 0
+    description: 'CTE for biospecimens from omop_combined.specimen'
+joins:
+  -
+    alias: conditions_join
+    table1: ''
+    table2: conditions_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: ''
+  -
+    alias: ts_join
+    table1: ''
+    table2: ts_cte
+    'on': 'omop_combined.person.person_id = (SELECT MIN(person_id) FROM omop_combined.person)'
+    comment: 'Joins ts_cte to a single person row to produce study-level TS records'
+  -
+    alias: measurements_join
+    table1: ''
+    table2: measurements_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins measurements to person'
+  -
+    alias: observations_join
+    table1: ''
+    table2: observations_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins observations to person'
+  -
+    alias: procedures_join
+    table1: ''
+    table2: procedures_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins procedures to person'
+  -
+    alias: vitalsigns_join
+    table1: ''
+    table2: vitalsigns_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins vital signs to person'
+  -
+    alias: death_join
+    table1: ''
+    table2: death_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins death to person'
+  -
+    alias: specimen_join
+    table1: ''
+    table2: specimen_cte
+    'on': '$table1.person_id = $table2.person_id'
+    comment: 'Joins specimen to person'
+bridges:
+  -
+    name: ae_mapping
+    cdmTable: AE
+    comment: 'Mapping for Adverse Events from condition_occurrence'
+    join: conditions_join
+    structures:
+      AEACN:
+        sql: "'UNKNOWN'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      AEBDSYCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: SOC
+      AEBODSYS:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: SOC
+      AECAT:
+        sql: $table.domain_id
+        type: plain
+      AEDECOD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: PT
+      AEDUR:
+        sql: 'NULL'
+        type: plain
+      AEENDTC:
+        sql: "to_char($table.condition_end_date, 'YYYY-MM-DD')"
+        type: plain
+      AEENDY:
+        sql: 'NULL::int'
+        type: plain
+      AEENRF:
+        sql: 'NULL'
+        type: plain
+      AEENRTPT:
+        sql: "CASE WHEN $table.condition_end_date IS NULL THEN 'ONGOING' ELSE NULL END"
+        type: plain
+      AEENTPT:
+        sql: "CASE WHEN $table.condition_end_date IS NULL THEN 'data cutoff' ELSE NULL END"
+        type: plain
+      AEHLGT:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: HLGT
+      AEHLGTCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: HLGT
+      AEHLT:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: HLT
+      AEHLTCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: HLT
+      AELLT:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: LLT
+      AELLTCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: LLT
+      AEOUT:
+        sql: 'NULL'
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      AEPTCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: PT
+      AEREL:
+        sql: 'NULL'
+        type: plain
+      AESCAT:
+        sql: 'NULL'
+        type: plain
+      AESEQ:
+        sql: '1'
+        type: serial
+      AESER:
+        sql: 'NULL'
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      AESEV:
+        sql: "'MODERATE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      AESOC:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: SOC
+      AESOCCD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: SOC
+      AESTDTC:
+        sql: "to_char($table.condition_start_date, 'YYYY-MM-DD')"
+        type: plain
+      AESTDY:
+        sql: 'NULL::int'
+        type: plain
+      AETERM:
+        sql: $table.concept_code
+        type: plain
+      DOMAIN:
+        sql: "'AE'"
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      TAETORD:
+        sql: 'NULL::int'
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+  -
+    name: dm_mapping
+    cdmTable: DM
+    comment: ''
+    join: null
+    structures:
+      ACTARM:
+        sql: 'NULL'
+        type: plain
+      ACTARMCD:
+        sql: 'NULL'
+        type: plain
+      ACTARMUD:
+        sql: 'NULL'
+        type: plain
+      AGE:
+        sql: '(EXTRACT(YEAR FROM CURRENT_DATE) - $table.year_of_birth)::int'
+        type: plain
+      AGEU:
+        sql: "'YEARS'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      ARM:
+        sql: 'NULL'
+        type: plain
+      ARMCD:
+        sql: 'NULL'
+        type: plain
+      ARMNRS:
+        sql: "'NOT ASSIGNED'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      BRTHDTC:
+        sql: "to_char($table.birth_datetime, 'YYYY-MM-DD')"
+        type: plain
+      COUNTRY:
+        sql: "'USA'"
+        type: plain
+      DMDTC:
+        sql: "to_char(CURRENT_DATE, 'YYYY-MM-DD')"
+        type: plain
+      DMDY:
+        sql: 'NULL::int'
+        type: plain
+      DOMAIN:
+        sql: "'DM'"
+        type: plain
+      DTHDTC:
+        sql: "to_char($table.death_date, 'YYYY-MM-DD')"
+        type: plain
+        join: death_join
+      DTHFL:
+        sql: "CASE WHEN $table.death_date IS NOT NULL THEN 'Y' ELSE NULL END"
+        type: plain
+        join: death_join
+      ETHNIC:
+        sql: 'NULL'
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      INVID:
+        sql: 'NULL'
+        type: plain
+      INVNAM:
+        sql: 'NULL'
+        type: plain
+      RACE:
+        sql: $table.race_source_value
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      RFCENDTC:
+        sql: 'NULL'
+        type: plain
+      RFCSTDTC:
+        sql: 'NULL'
+        type: plain
+      RFENDTC:
+        sql: 'NULL'
+        type: plain
+      RFICDTC:
+        sql: "to_char(NOW(), 'YYYY-MM-DD')"
+        type: plain
+      RFPENDTC:
+        sql: 'NULL'
+        type: plain
+      RFSTDTC:
+        sql: 'NULL'
+        type: plain
+      RFXENDTC:
+        sql: 'NULL'
+        type: plain
+      RFXSTDTC:
+        sql: 'NULL'
+        type: plain
+      SEX:
+        sql: $table.gender_source_value
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      SITEID:
+        sql: "'SITE-1'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      SUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+  -
+    name: mh_mapping
+    cdmTable: MH
+    comment: ''
+    join: conditions_join
+    structures:
+      DOMAIN:
+        sql: "'MH'"
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      MHBODSYS:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: SOC
+      MHCAT:
+        sql: $table.domain_id
+        type: plain
+      MHDECOD:
+        sql: $table.concept_name
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'UnitonTRE/MedDRA-29.0-customized'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+        conceptClassId: PT
+      MHDTC:
+        sql: 'NULL'
+        type: plain
+      MHDY:
+        sql: 'NULL::int'
+        type: plain
+      MHENDTC:
+        sql: 'NULL'
+        type: plain
+      MHENRF:
+        sql: 'NULL'
+        type: plain
+      MHENRTPT:
+        sql: 'NULL'
+        type: plain
+      MHENTPT:
+        sql: 'NULL'
+        type: plain
+      MHEVDTYP:
+        sql: "'INITIAL DIAGNOSIS'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      MHGRPID:
+        sql: 'NULL'
+        type: plain
+      MHMODIFY:
+        sql: 'NULL'
+        type: plain
+      MHOCCUR:
+        sql: 'NULL'
+        type: plain
+      MHPRESP:
+        sql: "'Y'"
+        type: plain
+      MHREASND:
+        sql: 'NULL'
+        type: plain
+      MHREFID:
+        sql: 'NULL'
+        type: plain
+      MHSCAT:
+        sql: 'NULL'
+        type: plain
+      MHSEQ:
+        sql: '1'
+        type: serial
+      MHSPID:
+        sql: 'NULL'
+        type: plain
+      MHSTAT:
+        sql: "'NOT DONE'"
+        type: plain
+      MHSTDTC:
+        sql: "to_char($table.condition_start_date, 'YYYY-MM-DD')"
+        type: plain
+      MHTERM:
+        sql: $table.concept_code
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      TAETORD:
+        sql: 'NULL::int'
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+  -
+    name: ts_mapping
+    cdmTable: TS
+    comment: 'Trial Summary - study-level metadata parameters'
+    join: ts_join
+    structures:
+      DOMAIN:
+        sql: "'TS'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      TSPARM:
+        sql: $table.tsparm
+        type: plain
+      TSPARMCD:
+        sql: $table.tsparmcd
+        type: plain
+      TSSEQ:
+        sql: $table.tsseq
+        type: plain
+      TSVAL:
+        sql: $table.tsval
+        type: plain
+      TSVALCD:
+        sql: 'CAST($table.tsvalcd AS TEXT)'
+        type: plain
+      TSVALNF:
+        sql: $table.tsvalnf
+        type: plain
+      TSVCDREF:
+        sql: 'CAST($table.tsvcdref AS TEXT)'
+        type: plain
+      TSVCDVER:
+        sql: 'CAST($table.tsvcdver AS TEXT)'
+        type: plain
+  -
+    name: lb_mapping
+    cdmTable: LB
+    comment: 'Laboratory Results from measurement table'
+    join: measurements_join
+    structures:
+      DOMAIN:
+        sql: "'LB'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      LBSEQ:
+        sql: '1'
+        type: serial
+      LBTESTCD:
+        sql: "CASE WHEN $table.measurement_concept_name = 'Richmond Agitation-Sedation Scale' THEN 'RASS' WHEN $table.measurement_concept_name = 'Stroke volume variation' THEN 'SVV' WHEN $table.measurement_concept_name = 'Body weight' THEN 'WEIGHT' WHEN $table.measurement_concept_name = 'Body height measure' THEN 'HEIGHT' ELSE UPPER(LEFT($table.measurement_concept_name, 8)) END"
+        type: plain
+      LBTEST:
+        sql: $table.measurement_concept_name
+        type: plain
+      LBCAT:
+        sql: "'CHEMISTRY'"
+        type: plain
+      LBORRES:
+        sql: "CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END"
+        type: plain
+      LBORRESU:
+        sql: "COALESCE($table.unit_source_value, CASE WHEN $table.measurement_concept_name = 'Richmond Agitation-Sedation Scale' THEN 'SCORE' WHEN $table.measurement_concept_name = 'Stroke volume variation' THEN '%' WHEN $table.measurement_concept_name = 'Body weight' THEN 'kg' WHEN $table.measurement_concept_name = 'Body height measure' THEN 'm' END)"
+        type: plain
+      LBORNRLO:
+        sql: 'CAST($table.range_low AS TEXT)'
+        type: plain
+      LBORNRHI:
+        sql: 'CAST($table.range_high AS TEXT)'
+        type: plain
+      LBSTRESC:
+        sql: "CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END"
+        type: plain
+      LBSTRESN:
+        sql: "CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END"
+        type: plain
+      LBSTRESU:
+        sql: "COALESCE($table.unit_source_value, CASE WHEN $table.measurement_concept_name = 'Richmond Agitation-Sedation Scale' THEN 'SCORE' WHEN $table.measurement_concept_name = 'Stroke volume variation' THEN '%' WHEN $table.measurement_concept_name = 'Body weight' THEN 'kg' WHEN $table.measurement_concept_name = 'Body height measure' THEN 'm' END)"
+        type: plain
+      LBSTNRLO:
+        sql: '$table.range_low'
+        type: plain
+      LBSTNRHI:
+        sql: '$table.range_high'
+        type: plain
+      LBSTAT:
+        sql: 'NULL'
+        type: plain
+      LBDTC:
+        sql: "to_char($table.measurement_date, 'YYYY-MM-DD')"
+        type: plain
+      LBDY:
+        sql: 'NULL::int'
+        type: plain
+      VISITNUM:
+        sql: 'NULL::int'
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      TAETORD:
+        sql: 'NULL::int'
+        type: plain
+  -
+    name: sc_mapping
+    cdmTable: SC
+    comment: 'Subject Characteristics from observation table'
+    join: observations_join
+    structures:
+      DOMAIN:
+        sql: "'SC'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      SCSEQ:
+        sql: '1'
+        type: serial
+      SCTESTCD:
+        sql: "CASE WHEN $table.observation_concept_name = 'Cost containment' THEN 'COSTCONT' WHEN $table.observation_concept_name = 'Bowel sounds' THEN 'BOWLSND' WHEN $table.observation_concept_name = 'Fall' THEN 'FALL' WHEN $table.observation_concept_name = 'Resuscitation status' THEN 'RESUSSTA' WHEN $table.observation_concept_name = 'Acceptable pain level status' THEN 'PAINLVL' WHEN $table.observation_concept_name = 'Postmenopausal state' THEN 'POSTMENO' WHEN $table.observation_concept_name = 'Patient transfer to intensive care unit' THEN 'XFTOICU' WHEN $table.observation_concept_name = 'Patient transfer to postoperative anesthesia care unit' THEN 'XFTOPACU' WHEN $table.observation_concept_name = 'Coordination of family conference' THEN 'FAMCONF' WHEN $table.observation_concept_name = 'Liaising with family' THEN 'FAMLIASE' ELSE UPPER(LEFT($table.observation_source_value, 8)) END"
+        type: plain
+      SCTEST:
+        sql: "LEFT($table.observation_concept_name, 40)"
+        type: plain
+      SCORRES:
+        sql: $table.value_as_string
+        type: plain
+      SCSTRESC:
+        sql: $table.value_as_string
+        type: plain
+      SCSTAT:
+        sql: "CASE WHEN $table.value_as_string IS NULL THEN 'NOT DONE' ELSE NULL END"
+        type: plain
+      SCSTRESN:
+        sql: "CASE WHEN $table.value_as_string ~ '^-?[0-9]+(\\.[0-9]+)?$' THEN $table.value_as_string::double precision ELSE NULL END"
+        type: plain
+      SCDTC:
+        sql: "to_char($table.observation_date, 'YYYY-MM-DD')"
+        type: plain
+      SCDY:
+        sql: 'NULL::int'
+        type: plain
+      VISITNUM:
+        sql: 'NULL::int'
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      TAETORD:
+        sql: 'NULL::int'
+        type: plain
+  -
+    name: pr_mapping
+    cdmTable: PR
+    comment: 'Procedures from procedure_occurrence'
+    join: procedures_join
+    structures:
+      DOMAIN:
+        sql: "'PR'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      PRSEQ:
+        sql: '1'
+        type: serial
+      PRTRT:
+        sql: $table.concept_name
+        type: plain
+      PRDECOD:
+        sql: $table.concept_name
+        type: plain
+      PRCAT:
+        sql: $table.domain_id
+        type: plain
+      PRSCAT:
+        sql: 'NULL'
+        type: plain
+      PRPRESP:
+        sql: 'NULL'
+        type: plain
+      PROCCUR:
+        sql: 'NULL'
+        type: plain
+      PRSTDTC:
+        sql: "to_char($table.procedure_date, 'YYYY-MM-DD')"
+        type: plain
+      PRENDTC:
+        sql: "to_char($table.procedure_end_date, 'YYYY-MM-DD')"
+        type: plain
+      PRSTDY:
+        sql: 'NULL::int'
+        type: plain
+      PRENDY:
+        sql: 'NULL::int'
+        type: plain
+      VISITNUM:
+        sql: 'NULL::int'
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+      TAETORD:
+        sql: 'NULL::int'
+        type: plain
+  -
+    name: bs_mapping
+    cdmTable: BS
+    comment: 'Biospecimen from specimen table'
+    join: specimen_join
+    structures:
+      DOMAIN:
+        sql: "'BS'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      BSSEQ:
+        sql: '1'
+        type: serial
+      BSTESTCD:
+        sql: "CASE WHEN $table.concept_name = 'Amniotic fluid specimen' THEN 'AMNFLUID' WHEN $table.concept_name = 'Anal swab' THEN 'ANALSWAB' WHEN $table.concept_name = 'Bile specimen' THEN 'BILE' WHEN $table.concept_name = 'Biopsy specimen' THEN 'BIOPSY' WHEN $table.concept_name = 'Blood specimen' THEN 'BLOOD' WHEN $table.concept_name = 'Body substance specimen from ear' THEN 'EARSUB' WHEN $table.concept_name = 'Bone marrow specimen' THEN 'BONEMARR' WHEN $table.concept_name = 'Bronchial brushings specimen' THEN 'BRNBRUSH' WHEN $table.concept_name = 'Bronchoalveolar lavage fluid specimen' THEN 'BAL' WHEN $table.concept_name = 'Catheter submitted as specimen' THEN 'CATHETER' WHEN $table.concept_name = 'Cerebrospinal fluid specimen' THEN 'CSF' WHEN $table.concept_name = 'Chorionic villi specimen' THEN 'CHORVILL' WHEN $table.concept_name = 'Corneal scraping specimen' THEN 'CORNSCRP' WHEN $table.concept_name = 'Fluid specimen' THEN 'FLUID' WHEN $table.concept_name = 'Fluid specimen from wound' THEN 'WNDFLUID' WHEN $table.concept_name = 'Foreign body submitted as specimen' THEN 'FOREBODY' WHEN $table.concept_name = 'Joint fluid specimen' THEN 'JNTFLUID' WHEN $table.concept_name = 'Parasitic worm specimen' THEN 'PARWORM' WHEN $table.concept_name = 'Peritoneal fluid specimen' THEN 'PERIFLUD' WHEN $table.concept_name = 'Pleural fluid specimen' THEN 'PLRFLUID' WHEN $table.concept_name = 'Specimen from abscess' THEN 'ABSCESS' WHEN $table.concept_name = 'Specimen from eye' THEN 'EYE' WHEN $table.concept_name = 'Specimen from lung obtained by bronchial washing procedure' THEN 'BRNWASH' WHEN $table.concept_name = 'Specimen from nail obtained by scraping' THEN 'NAILSCRP' WHEN $table.concept_name = 'Specimen from respiratory system' THEN 'RESPSYS' WHEN $table.concept_name = 'Specimen from skin' THEN 'SKIN' WHEN $table.concept_name = 'Specimen from skin obtained by scraping' THEN 'SKINSCRP' WHEN $table.concept_name = 'Specimen from throat' THEN 'THROAT' WHEN $table.concept_name = 'Specimen obtained by aspiration' THEN 'ASPIRATE' WHEN $table.concept_name = 'Sputum specimen' THEN 'SPUTUM' WHEN $table.concept_name = 'Stool specimen' THEN 'STOOL' WHEN $table.concept_name = 'Swab' THEN 'SWAB' WHEN $table.concept_name = 'Tissue specimen' THEN 'TISSUE' WHEN $table.concept_name = 'Transtracheal aspirate specimen' THEN 'TRACHASP' WHEN $table.concept_name = 'Urine specimen' THEN 'URINE' WHEN $table.concept_name = 'Vaginal swab' THEN 'VAGSWAB' ELSE UPPER(LEFT($table.concept_name, 8)) END"
+        type: plain
+      BSTEST:
+        sql: "LEFT($table.concept_name, 40)"
+        type: plain
+      BSCAT:
+        sql: "'SPECIMEN COLLECTION'"
+        type: plain
+      BSORRES:
+        sql: $table.concept_name
+        type: plain
+      BSSTRESC:
+        sql: $table.concept_name
+        type: plain
+      BSSPEC:
+        sql: $table.concept_name
+        type: plain
+      BSDTC:
+        sql: "to_char($table.specimen_date, 'YYYY-MM-DD')"
+        type: plain
+      BSDY:
+        sql: 'NULL::int'
+        type: plain
+      VISITNUM:
+        sql: 'NULL::int'
+        type: plain
+
+  -
+    name: vs_mapping
+    cdmTable: VS
+    comment: 'Vital Signs from measurement table'
+    join: vitalsigns_join
+    structures:
+      DOMAIN:
+        sql: "'VS'"
+        type: plain
+      STUDYID:
+        sql: "'STUDY-1'"
+        type: plain
+      USUBJID:
+        sql: 'CAST($table.person_id AS TEXT)'
+        type: plain
+      VSSEQ:
+        sql: '1'
+        type: serial
+      VSTESTCD:
+        sql: "CASE WHEN $table.vs_test_name = 'Heart rate' THEN 'HR' WHEN $table.vs_test_name = 'Systolic blood pressure' THEN 'SYSBP' WHEN $table.vs_test_name = 'Diastolic blood pressure' THEN 'DIABP' WHEN $table.vs_test_name = 'Mean blood pressure' THEN 'MEANBP' WHEN $table.vs_test_name = 'Respiratory rate' THEN 'RESP' WHEN $table.vs_test_name = 'Peripheral oxygen saturation' THEN 'OXYSAT' WHEN $table.vs_test_name = 'Body temperature' THEN 'TEMP' WHEN $table.vs_test_name = 'Body weight' THEN 'WEIGHT' WHEN $table.vs_test_name = 'Body height' THEN 'HEIGHT' ELSE UPPER(LEFT($table.vs_test_name, 8)) END"
+        type: plain
+      VSTEST:
+        sql: "CASE WHEN $table.vs_test_name = 'Heart rate' THEN 'Heart Rate' WHEN $table.vs_test_name = 'Systolic blood pressure' THEN 'Systolic Blood Pressure' WHEN $table.vs_test_name = 'Diastolic blood pressure' THEN 'Diastolic Blood Pressure' WHEN $table.vs_test_name = 'Mean blood pressure' THEN 'Mean Blood Pressure' WHEN $table.vs_test_name = 'Respiratory rate' THEN 'Respiratory Rate' WHEN $table.vs_test_name = 'Peripheral oxygen saturation' THEN 'Oxygen Saturation' WHEN $table.vs_test_name = 'Body temperature' THEN 'Temperature' WHEN $table.vs_test_name = 'Body weight' THEN 'Weight' WHEN $table.vs_test_name = 'Body height' THEN 'Height' ELSE $table.vs_test_name END"
+        type: plain
+      VSORRES:
+        sql: "CASE WHEN $table.value_as_number IS NOT NULL THEN CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END ELSE $table.value_source_value END"
+        type: plain
+      VSORRESU:
+        sql: "COALESCE($table.unit_source_value, CASE WHEN $table.vs_test_name = 'Heart rate' THEN 'beats/min' WHEN $table.vs_test_name IN ('Systolic blood pressure','Diastolic blood pressure','Mean blood pressure') THEN 'mmHg' WHEN $table.vs_test_name = 'Respiratory rate' THEN 'breaths/min' WHEN $table.vs_test_name = 'Peripheral oxygen saturation' THEN '%' WHEN $table.vs_test_name = 'Body temperature' THEN 'C' WHEN $table.vs_test_name = 'Body weight' THEN 'kg' WHEN $table.vs_test_name = 'Body height' THEN 'cm' END)"
+        type: plain
+      VSSTRESC:
+        sql: "CASE WHEN $table.value_as_number IS NOT NULL THEN CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END ELSE $table.value_source_value END"
+        type: plain
+      VSSTRESN:
+        sql: "CASE WHEN $table.value_as_number = TRUNC($table.value_as_number) THEN TRUNC($table.value_as_number)::text ELSE $table.value_as_number::text END"
+        type: plain
+      VSSTRESU:
+        sql: "COALESCE($table.unit_source_value, CASE WHEN $table.vs_test_name = 'Heart rate' THEN 'beats/min' WHEN $table.vs_test_name IN ('Systolic blood pressure','Diastolic blood pressure','Mean blood pressure') THEN 'mmHg' WHEN $table.vs_test_name = 'Respiratory rate' THEN 'breaths/min' WHEN $table.vs_test_name = 'Peripheral oxygen saturation' THEN '%' WHEN $table.vs_test_name = 'Body temperature' THEN 'C' WHEN $table.vs_test_name = 'Body weight' THEN 'kg' WHEN $table.vs_test_name = 'Body height' THEN 'cm' END)"
+        type: plain
+      VSSTAT:
+        sql: 'NULL'
+        type: plain
+      VSDTC:
+        sql: "to_char($table.measurement_date, 'YYYY-MM-DD')"
+        type: plain
+      VSDY:
+        sql: 'NULL::int'
+        type: plain
+      VISITNUM:
+        sql: 'NULL::int'
+        type: plain
+      VSTPT:
+        sql: 'NULL'
+        type: plain
+      VSTPTNUM:
+        sql: 'NULL::int'
+        type: plain
+      EPOCH:
+        sql: "'BASELINE'"
+        type: conceptId
+        suggestionsSettings:
+          domains: []
+          vocabularies:
+            - 'demo/CDISC:2.1'
+          generators: []
+          isStandardConceptOnly: true
+          comment: ''
+
